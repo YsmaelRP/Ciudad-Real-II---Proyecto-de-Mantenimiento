@@ -32,6 +32,10 @@ npm run build
 
 La compilación se genera en `dist/`.
 
+## Base de datos
+
+Los scripts, el orden de instalación y las cuentas ficticias de PostgreSQL están en [database/README.md](database/README.md). La conexión del frontend con la base se hará a través de la API; React no debe conectarse directamente a PostgreSQL.
+
 ## Trabajo en equipo
 
 Crear una rama por tarea y enviar un pull request a `main`. Hacer commits pequeños que permitan revisar el avance de cada funcionalidad.
