@@ -1,6 +1,6 @@
 # API de mantenimiento
 
-Servidor Express con TypeScript. Incluye configuración, errores JSON, salud, conexión a PostgreSQL, autenticación con cuentas precreadas y validación de roles. Las operaciones de solicitudes y la integración con React siguen pendientes.
+Servidor Express con TypeScript. Incluye configuración, errores JSON, salud, conexión a PostgreSQL, autenticación con cuentas precreadas y validación de roles. React ya integra el acceso y la consulta de técnicos. Las operaciones de solicitudes siguen pendientes.
 
 ## Ejecutar
 
@@ -59,7 +59,7 @@ Las respuestas de usuario contienen `id` (texto), `name`, `email`, `role` e `ini
 
 Las sesiones duran dos horas, no se renuevan por actividad y sobreviven al reinicio de Express. El navegador recibe un token aleatorio de 256 bits en una cookie HttpOnly, SameSite=Lax; PostgreSQL conserva únicamente su hash SHA-256. Un nuevo login rota la sesión de ese navegador. Cada consulta autenticada verifica expiración y usuario activo. El cierre de sesión revoca el token en el servidor.
 
-`NODE_ENV=production` habilita cookies Secure y exige `FRONTEND_ORIGIN` con HTTPS. En local usar `development`. Para la futura integración en navegador, mantener frontend y API bajo el mismo sitio: por ejemplo, ambos con `localhost`, sin mezclar `localhost` con `127.0.0.1`. Otra opción es un proxy `/api` desde Vite. Usar `credentials: 'include'` en las llamadas de React.
+`NODE_ENV=production` habilita cookies Secure y exige `FRONTEND_ORIGIN` con HTTPS. En local usar `development`. React llama a `/api` con `credentials: 'include'`; el proxy de Vite reenvía al backend y permite usar cookies bajo el mismo sitio. Abrir React en `http://localhost:8443`, coincidiendo con `FRONTEND_ORIGIN`. En producción se necesita un proxy equivalente en el servidor web.
 
 Login y logout exigen `Content-Type: application/json` y rechazan un `Origin` distinto al configurado. Los clientes REST sin `Origin` están permitidos, salvo que declaren `Sec-Fetch-Site: cross-site`. El login acepta hasta 10 intentos por IP cada 15 minutos; el límite se guarda en memoria de cada proceso. No configurar `trust proxy` sin revisar el despliegue.
 
@@ -75,7 +75,7 @@ Invoke-RestMethod -Uri 'http://127.0.0.1:3001/api/technicians' -WebSession $sesi
 Invoke-RestMethod -Method Post -Uri 'http://127.0.0.1:3001/api/auth/logout' -ContentType 'application/json' -Body '{}' -WebSession $sesion
 ```
 
-Después del logout, repetir `/api/auth/me` debe dar 401. Repetir el login con `residente@cr2.do` o `mantenimiento@cr2.do` y contraseña `demo123` debe permitir `/auth/me`, pero denegar `/technicians` con 403. La interfaz de React todavía usa su login simulado; estas pruebas verifican la API directamente.
+Después del logout, repetir `/api/auth/me` debe dar 401. Repetir el login con `residente@cr2.do` o `mantenimiento@cr2.do` y contraseña `demo123` debe permitir `/auth/me`, pero denegar `/technicians` con 403. Estas pruebas verifican la API directamente; el acceso también puede probarse desde el formulario de React.
 
 Antes de un despliegue real, revisar HTTPS, permisos del usuario de conexión, límites de acceso compartidos entre procesos y limpieza programada de sesiones expiradas. No usar las cuentas demo en producción.
 
