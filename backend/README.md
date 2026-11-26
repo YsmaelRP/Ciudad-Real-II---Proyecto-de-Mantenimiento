@@ -1,6 +1,6 @@
 # API de mantenimiento
 
-Servidor Express con TypeScript. Esta primera etapa incluye configuración, errores JSON, salud del servidor y comprobación de conexión a PostgreSQL. Todavía no hay autenticación ni operaciones de solicitudes.
+Servidor Express con TypeScript. Incluye configuración, errores JSON, salud, conexión a PostgreSQL, autenticación con cuentas precreadas y validación de roles. Las operaciones de solicitudes y la integración con React siguen pendientes.
 
 ## Ejecutar
 
@@ -44,6 +44,41 @@ Los valores en mayúsculas son marcadores, no credenciales utilizables. Codifica
 
 `ready` solo comprueba conectividad; no asegura que existan las tablas, migraciones o cuentas. El pool limita conexiones y tiempos de espera, y se cierra al detener el servidor. No se desactiva la validación de certificados SSL.
 
+## Inicio de sesión y permisos
+
+Antes de probar el acceso, aplicar **una sola vez** `database/004_sesiones.sql` sobre una base que ya tenga los scripts anteriores. No volver a crear la base ni repetir `schema.sql`. Las cuentas ficticias se cargan con `seed_demo.sql` como se explica en el README de la base.
+
+| Método y ruta | Acceso / resultado |
+|---|---|
+| `POST /api/auth/login` | JSON con `email` y `password`. Devuelve `{ "user": ... }` y una cookie de sesión. |
+| `GET /api/auth/me` | Devuelve el usuario de la sesión; sin sesión válida responde 401. |
+| `POST /api/auth/logout` | Enviar JSON `{}`. Revoca la sesión y borra la cookie; responde 204. |
+| `GET /api/technicians` | Solo administración. Lista técnicos activos; sin sesión responde 401 y con otro rol 403. |
+
+Las respuestas de usuario contienen `id` (texto), `name`, `email`, `role` e `initials`, nunca contraseña ni hash. Los roles de respuesta son `resident`, `admin` y `maintenance`, compatibles con React. Los permisos se comprueban con el rol almacenado en PostgreSQL, no con datos enviados por el cliente.
+
+Las sesiones duran dos horas, no se renuevan por actividad y sobreviven al reinicio de Express. El navegador recibe un token aleatorio de 256 bits en una cookie HttpOnly, SameSite=Lax; PostgreSQL conserva únicamente su hash SHA-256. Un nuevo login rota la sesión de ese navegador. Cada consulta autenticada verifica expiración y usuario activo. El cierre de sesión revoca el token en el servidor.
+
+`NODE_ENV=production` habilita cookies Secure y exige `FRONTEND_ORIGIN` con HTTPS. En local usar `development`. Para la futura integración en navegador, mantener frontend y API bajo el mismo sitio: por ejemplo, ambos con `localhost`, sin mezclar `localhost` con `127.0.0.1`. Otra opción es un proxy `/api` desde Vite. Usar `credentials: 'include'` en las llamadas de React.
+
+Login y logout exigen `Content-Type: application/json` y rechazan un `Origin` distinto al configurado. Los clientes REST sin `Origin` están permitidos, salvo que declaren `Sec-Fetch-Site: cross-site`. El login acepta hasta 10 intentos por IP cada 15 minutos; el límite se guarda en memoria de cada proceso. No configurar `trust proxy` sin revisar el despliegue.
+
+### Prueba manual en PowerShell
+
+Con Express funcionando, ejecutar en otra terminal. Son credenciales públicas de demostración, no las de conexión a PostgreSQL:
+
+```powershell
+$login = @{ email = 'admin@cr2.do'; password = 'demo123' } | ConvertTo-Json
+Invoke-RestMethod -Method Post -Uri 'http://127.0.0.1:3001/api/auth/login' -ContentType 'application/json' -Body $login -SessionVariable sesion
+Invoke-RestMethod -Uri 'http://127.0.0.1:3001/api/auth/me' -WebSession $sesion
+Invoke-RestMethod -Uri 'http://127.0.0.1:3001/api/technicians' -WebSession $sesion
+Invoke-RestMethod -Method Post -Uri 'http://127.0.0.1:3001/api/auth/logout' -ContentType 'application/json' -Body '{}' -WebSession $sesion
+```
+
+Después del logout, repetir `/api/auth/me` debe dar 401. Repetir el login con `residente@cr2.do` o `mantenimiento@cr2.do` y contraseña `demo123` debe permitir `/auth/me`, pero denegar `/technicians` con 403. La interfaz de React todavía usa su login simulado; estas pruebas verifican la API directamente.
+
+Antes de un despliegue real, revisar HTTPS, permisos del usuario de conexión, límites de acceso compartidos entre procesos y limpieza programada de sesiones expiradas. No usar las cuentas demo en producción.
+
 ## Verificar y compilar
 
 ```bash
@@ -55,4 +90,9 @@ npm start
 
 Las dependencias del frontend y del backend tienen archivos `package-lock.json` separados. Las pruebas HTTP no necesitan abrir un puerto fijo.
 
-Las pruebas normales usan conexiones simuladas. Para habilitar también la prueba real de PostgreSQL, definir `TEST_DATABASE_URL` en la terminal apuntando a una base de prueba y ejecutar `npm test`. Esta prueba solo hace `SELECT 1`, no crea ni modifica tablas. Sin esa variable aparece como omitida.
+Las pruebas normales usan conexiones simuladas. Las dos pruebas reales se habilitan explícitamente y no cargan `.env`:
+
+- `TEST_DATABASE_URL`: prueba de conectividad con `SELECT 1`, sin modificar tablas.
+- `TEST_AUTH_DATABASE_URL`: base de prueba con los scripts hasta `004_sesiones.sql` y el seed cargados. Verifica login bcrypt de los tres roles, sesión persistida, permisos, rotación, expiración y logout. Crea y elimina solo sus propias sesiones; no modifica cuentas ni ejecuta migraciones.
+
+Definir las variables en la terminal antes de `npm test`, nunca en archivos versionados. Sin esas variables se omiten dos pruebas. Se verificaron las 29 pruebas con PostgreSQL 18 en una instancia aislada; estas pruebas no sustituyen las de solicitudes y la futura integración del frontend.

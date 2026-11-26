@@ -6,7 +6,7 @@ Proyecto de la asignatura INF-386-03 de la UNPHU. El sistema permitirá a los re
 
 El frontend está hecho con React, TypeScript y Vite. Incluye acceso con cuentas de demostración, paneles para los tres roles, registro de solicitudes, asignaciones, estados, historial y filtros.
 
-Por ahora las solicitudes se guardan en el navegador y el acceso es simulado. La base de datos PostgreSQL ya tiene scripts de instalación. En `backend/` está la base de la API con Node.js, Express y TypeScript; las funciones de acceso y solicitudes y su integración con React siguen pendientes.
+Por ahora el frontend guarda las solicitudes en el navegador y su acceso es simulado. PostgreSQL ya tiene scripts de instalación. La API en `backend/`, con Node.js, Express y TypeScript, incluye inicio de sesión, sesiones persistidas y validación de roles. Las operaciones de solicitudes y la integración con React siguen pendientes.
 
 ## Ejecutar el frontend
 
