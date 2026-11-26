@@ -16,6 +16,7 @@ export function createDatabase(connectionString: string) {
   });
 
   return {
+    pool,
     async checkConnection(): Promise<void> {
       await pool.query('SELECT 1');
     },

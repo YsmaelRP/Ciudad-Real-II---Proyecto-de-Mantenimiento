@@ -4,7 +4,7 @@ import { readConfig } from '../src/config.js';
 
 test('la configuración permite iniciar localmente sin archivo env', () => {
   assert.deepEqual(readConfig({}), {
-    host: '127.0.0.1', port: 3001, frontendOrigin: 'http://localhost:8443', databaseUrl: undefined,
+    host: '127.0.0.1', port: 3001, frontendOrigin: 'http://localhost:8443', databaseUrl: undefined, secureCookies: false,
   });
 });
 
@@ -33,4 +33,10 @@ test('rechaza host vacío y orígenes con ruta o protocolo no HTTP', () => {
   for (const origin of ['*', '', 'ftp://localhost', 'http://localhost:8443/api']) {
     assert.throws(() => readConfig({ FRONTEND_ORIGIN: origin }), /FRONTEND_ORIGIN/);
   }
+});
+
+test('producción requiere HTTPS y activa cookies Secure', () => {
+  assert.throws(() => readConfig({ NODE_ENV: 'production' }), /HTTPS/);
+  assert.throws(() => readConfig({ NODE_ENV: 'produccion' }), /NODE_ENV/);
+  assert.equal(readConfig({ NODE_ENV: 'production', FRONTEND_ORIGIN: 'https://example.com' }).secureCookies, true);
 });

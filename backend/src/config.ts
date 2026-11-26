@@ -3,6 +3,7 @@ export type Config = {
   port: number;
   frontendOrigin: string;
   databaseUrl?: string;
+  secureCookies: boolean;
 };
 
 export function readConfig(env: NodeJS.ProcessEnv): Config {
@@ -38,5 +39,13 @@ export function readConfig(env: NodeJS.ProcessEnv): Config {
     }
   }
 
-  return { host, port: Number(port), frontendOrigin, databaseUrl };
+  const nodeEnv = env.NODE_ENV ?? 'development';
+  if (!['development', 'test', 'production'].includes(nodeEnv)) {
+    throw new Error('NODE_ENV debe ser development, test o production.');
+  }
+  if (nodeEnv === 'production' && origin.protocol !== 'https:') {
+    throw new Error('FRONTEND_ORIGIN debe usar HTTPS en producción.');
+  }
+
+  return { host, port: Number(port), frontendOrigin, databaseUrl, secureCookies: nodeEnv === 'production' };
 }
