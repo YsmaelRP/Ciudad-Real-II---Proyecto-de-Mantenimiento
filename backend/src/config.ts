@@ -2,6 +2,7 @@ export type Config = {
   host: string;
   port: number;
   frontendOrigin: string;
+  databaseUrl?: string;
 };
 
 export function readConfig(env: NodeJS.ProcessEnv): Config {
@@ -24,5 +25,18 @@ export function readConfig(env: NodeJS.ProcessEnv): Config {
     throw new Error('FRONTEND_ORIGIN debe contener solo protocolo, host y puerto, sin ruta.');
   }
 
-  return { host, port: Number(port), frontendOrigin };
+  const databaseUrl = env.DATABASE_URL?.trim() || undefined;
+  if (databaseUrl) {
+    let database: URL;
+    try {
+      database = new URL(databaseUrl);
+    } catch {
+      throw new Error('DATABASE_URL debe ser una URL válida de PostgreSQL.');
+    }
+    if (!['postgres:', 'postgresql:'].includes(database.protocol) || !database.hostname || database.pathname.length <= 1) {
+      throw new Error('DATABASE_URL debe indicar un servidor PostgreSQL y una base de datos.');
+    }
+  }
+
+  return { host, port: Number(port), frontendOrigin, databaseUrl };
 }

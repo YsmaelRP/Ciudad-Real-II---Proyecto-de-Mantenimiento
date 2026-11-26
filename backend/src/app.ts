@@ -2,7 +2,7 @@ import cors from 'cors';
 import express, { type ErrorRequestHandler } from 'express';
 import helmet from 'helmet';
 
-export function createApp(options: { frontendOrigin: string }) {
+export function createApp(options: { frontendOrigin: string; checkDatabase?: () => Promise<void> }) {
   const app = express();
   app.disable('x-powered-by');
   app.use(helmet());
@@ -11,6 +11,21 @@ export function createApp(options: { frontendOrigin: string }) {
 
   app.get('/api/health', (_req, res) => {
     res.json({ status: 'ok' });
+  });
+
+  // Separado de health: Express puede funcionar aunque PostgreSQL no esté listo.
+  app.get('/api/ready', async (_req, res) => {
+    res.set('Cache-Control', 'no-store');
+    if (!options.checkDatabase) {
+      res.status(503).json({ status: 'not_ready' });
+      return;
+    }
+    try {
+      await options.checkDatabase();
+      res.json({ status: 'ready' });
+    } catch {
+      res.status(503).json({ status: 'not_ready' });
+    }
   });
 
   app.use((_req, res) => {
