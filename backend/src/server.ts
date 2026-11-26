@@ -1,0 +1,27 @@
+import { fileURLToPath } from 'node:url';
+import { config as loadEnv } from 'dotenv';
+import { createApp } from './app.js';
+import { readConfig } from './config.js';
+
+loadEnv({ path: fileURLToPath(new URL('../.env', import.meta.url)), quiet: true });
+
+const config = readConfig(process.env);
+const app = createApp({ frontendOrigin: config.frontendOrigin });
+const server = app.listen(config.port, config.host, () => {
+  console.log(`API disponible en http://${config.host}:${config.port}`);
+});
+
+server.on('error', () => {
+  console.error('No se pudo iniciar la API. Revisa el host y el puerto configurados.');
+  process.exitCode = 1;
+});
+
+function shutdown() {
+  server.close((error) => {
+    process.exitCode = error ? 1 : 0;
+  });
+  setTimeout(() => process.exit(1), 10_000).unref();
+}
+
+process.once('SIGINT', shutdown);
+process.once('SIGTERM', shutdown);
