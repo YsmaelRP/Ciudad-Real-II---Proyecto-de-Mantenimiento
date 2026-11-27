@@ -11,13 +11,16 @@ createdb -h localhost -U postgres ciudad_real_ii
 psql -X -h localhost -U postgres -d ciudad_real_ii -v ON_ERROR_STOP=1 -f database/schema.sql
 psql -X -h localhost -U postgres -d ciudad_real_ii -v ON_ERROR_STOP=1 -f database/002_validaciones.sql
 psql -X -h localhost -U postgres -d ciudad_real_ii -v ON_ERROR_STOP=1 -f database/003_preparar_api.sql
+psql -X -h localhost -U postgres -d ciudad_real_ii -v ON_ERROR_STOP=1 -f database/004_sesiones.sql
 ```
 
-`schema.sql` y `003_preparar_api.sql` se ejecutan una sola vez. `002_validaciones.sql` se puede repetir: reemplaza los triggers existentes sin duplicarlos. No borrar tablas para actualizar una base existente.
+`schema.sql`, `003_preparar_api.sql` y `004_sesiones.sql` se ejecutan una sola vez. `002_validaciones.sql` se puede repetir: reemplaza los triggers existentes sin duplicarlos. No borrar tablas para actualizar una base existente.
 
 ## Base creada con la versión anterior
 
-Hacer una copia de seguridad. Si ya se ejecutó `schema.sql`, **no volver a ejecutarlo**. Aplicar `002_validaciones.sql` y luego `003_preparar_api.sql`. La migración 003 mantiene las solicitudes existentes y calcula sus códigos a partir de sus identificadores. Si ya se aplicó la 003, no repetirla.
+Hacer una copia de seguridad. Si ya se ejecutó `schema.sql`, **no volver a ejecutarlo**. Aplicar los scripts que falten, en orden: `002_validaciones.sql`, `003_preparar_api.sql`, `004_sesiones.sql`. La migración 003 mantiene las solicitudes existentes y calcula sus códigos a partir de sus identificadores. Si ya se aplicó la 003, no repetirla: aplicar solo la 004 para agregar sesiones.
+
+La tabla `sesiones` usa fechas con zona horaria y guarda hashes SHA-256 de tokens aleatorios, nunca cookies en texto plano. La API rechaza sesiones expiradas o de cuentas inactivas. Como mantenimiento, se pueden eliminar las filas expiradas con `DELETE FROM sesiones WHERE fecha_expiracion <= CURRENT_TIMESTAMP;`; esto no elimina usuarios ni solicitudes.
 
 ## Datos ficticios
 
@@ -54,7 +57,7 @@ El seed agrega Climatización y Carpintería sin borrar categorías anteriores. 
 - Al resolver, exigir la descripción del trabajo y guardarla en `historial_estados.observacion`. La API puede devolverla como `resolution` en el detalle.
 - Las fechas actuales son `TIMESTAMP` sin zona. Acordar la zona de los datos antes de devolver fechas ISO con offset; no agregar `Z` a una fecha local sin convertirla. Una migración a `TIMESTAMPTZ` debe definir cómo interpretar las fechas existentes.
 
-Los triggers validan roles referenciados y las restricciones protegen la integridad. **No sustituyen los permisos de la API ni garantizan por sí solos las transiciones y el historial conjunto.** No se ha creado todavía el backend ni modificado el comportamiento local del frontend.
+Los triggers validan roles referenciados y las restricciones protegen la integridad. **No sustituyen los permisos de la API ni garantizan por sí solos las transiciones y el historial conjunto.** React ya utiliza el acceso, las sesiones y la lista de técnicos del backend; las rutas de solicitudes y el reemplazo de su almacenamiento local siguen pendientes.
 
 ## Pruebas
 

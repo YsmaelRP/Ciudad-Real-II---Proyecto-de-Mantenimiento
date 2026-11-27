@@ -1,18 +1,12 @@
 import { FormEvent, ReactNode, useEffect, useMemo, useState } from 'react';
+import { getTechnicians, type AuthUser } from './api/auth';
+import { ApiError } from './api/client';
+import { useAuth } from './auth/useAuth';
 
-type Role = 'resident' | 'admin' | 'maintenance';
 type Status = 'Pendiente' | 'En proceso' | 'Resuelta';
 type View = 'dashboard' | 'requests' | 'new' | 'detail';
 
-type User = {
-  id: string;
-  name: string;
-  email: string;
-  password: string;
-  role: Role;
-  unit?: string;
-  initials: string;
-};
+type User = AuthUser;
 
 type HistoryEntry = {
   id: string;
@@ -41,73 +35,9 @@ type MaintenanceRequest = {
   history: HistoryEntry[];
 };
 
-const USERS: User[] = [
-  { id: 'u-res-1', name: 'María Fernández', email: 'residente@cr2.do', password: 'demo123', role: 'resident', unit: 'Torre B · Apto. 3C', initials: 'MF' },
-  { id: 'u-res-2', name: 'Carlos Méndez', email: 'carlos@cr2.do', password: 'demo123', role: 'resident', unit: 'Torre A · Apto. 2A', initials: 'CM' },
-  { id: 'u-admin', name: 'Laura Castillo', email: 'admin@cr2.do', password: 'demo123', role: 'admin', initials: 'LC' },
-  { id: 'u-tech-1', name: 'José Ramírez', email: 'mantenimiento@cr2.do', password: 'demo123', role: 'maintenance', initials: 'JR' },
-  { id: 'u-tech-2', name: 'Miguel Santos', email: 'miguel@cr2.do', password: 'demo123', role: 'maintenance', initials: 'MS' },
-];
-
-const nowMinus = (days: number, hours = 0) => {
-  const date = new Date();
-  date.setDate(date.getDate() - days);
-  date.setHours(date.getHours() - hours);
-  return date.toISOString();
-};
-
-const INITIAL_REQUESTS: MaintenanceRequest[] = [
-  {
-    id: 'req-1003', code: 'CR2-2025-0103', residentId: 'u-res-1', residentName: 'María Fernández',
-    category: 'Plomería', location: 'Torre B · Apto. 3C · Cocina',
-    description: 'Hay una filtración debajo del fregadero. El agua se acumula al utilizar la llave.',
-    status: 'Pendiente', createdAt: nowMinus(0, 3),
-    history: [{ id: 'h-1003-1', previousStatus: 'Pendiente', newStatus: 'Pendiente', userId: 'u-res-1', userName: 'María Fernández', at: nowMinus(0, 3), note: 'Solicitud registrada', type: 'created' }],
-  },
-  {
-    id: 'req-1002', code: 'CR2-2025-0102', residentId: 'u-res-1', residentName: 'María Fernández',
-    category: 'Electricidad', location: 'Torre B · Apto. 3C · Habitación principal',
-    description: 'El tomacorriente junto a la ventana dejó de funcionar.',
-    status: 'En proceso', createdAt: nowMinus(2),
-    assignedTo: 'u-tech-1', assignedName: 'José Ramírez',
-    history: [
-      { id: 'h-1002-1', previousStatus: 'Pendiente', newStatus: 'Pendiente', userId: 'u-res-1', userName: 'María Fernández', at: nowMinus(2), note: 'Solicitud registrada', type: 'created' },
-      { id: 'h-1002-2', previousStatus: 'Pendiente', newStatus: 'Pendiente', userId: 'u-admin', userName: 'Laura Castillo', at: nowMinus(1, 20), note: 'Asignada a José Ramírez', type: 'assignment' },
-      { id: 'h-1002-3', previousStatus: 'Pendiente', newStatus: 'En proceso', userId: 'u-tech-1', userName: 'José Ramírez', at: nowMinus(1, 18), note: 'Trabajo iniciado', type: 'status' },
-    ],
-  },
-  {
-    id: 'req-1001', code: 'CR2-2025-0101', residentId: 'u-res-2', residentName: 'Carlos Méndez',
-    category: 'Climatización', location: 'Torre A · Apto. 2A · Sala',
-    description: 'El aire acondicionado enciende, pero no enfría correctamente.',
-    status: 'Resuelta', createdAt: nowMinus(5),
-    assignedTo: 'u-tech-2', assignedName: 'Miguel Santos',
-    resolution: 'Se limpió el filtro, se ajustó la conexión y se verificó la temperatura de salida.',
-    history: [
-      { id: 'h-1001-1', previousStatus: 'Pendiente', newStatus: 'Pendiente', userId: 'u-res-2', userName: 'Carlos Méndez', at: nowMinus(5), note: 'Solicitud registrada', type: 'created' },
-      { id: 'h-1001-2', previousStatus: 'Pendiente', newStatus: 'Pendiente', userId: 'u-admin', userName: 'Laura Castillo', at: nowMinus(4, 20), note: 'Asignada a Miguel Santos', type: 'assignment' },
-      { id: 'h-1001-3', previousStatus: 'Pendiente', newStatus: 'En proceso', userId: 'u-tech-2', userName: 'Miguel Santos', at: nowMinus(4, 18), note: 'Trabajo iniciado', type: 'status' },
-      { id: 'h-1001-4', previousStatus: 'En proceso', newStatus: 'Resuelta', userId: 'u-tech-2', userName: 'Miguel Santos', at: nowMinus(4, 16), note: 'Se limpió el filtro, se ajustó la conexión y se verificó la temperatura de salida.', type: 'status' },
-    ],
-  },
-  {
-    id: 'req-1000', code: 'CR2-2025-0100', residentId: 'u-res-1', residentName: 'María Fernández',
-    category: 'Áreas comunes', location: 'Torre B · Pasillo del 3.er nivel',
-    description: 'La luminaria del pasillo parpadea constantemente durante la noche.',
-    status: 'Resuelta', createdAt: nowMinus(8),
-    assignedTo: 'u-tech-1', assignedName: 'José Ramírez',
-    resolution: 'Se reemplazó el tubo LED y se revisó la conexión del plafón.',
-    history: [
-      { id: 'h-1000-1', previousStatus: 'Pendiente', newStatus: 'Pendiente', userId: 'u-res-1', userName: 'María Fernández', at: nowMinus(8), note: 'Solicitud registrada', type: 'created' },
-      { id: 'h-1000-2', previousStatus: 'Pendiente', newStatus: 'Pendiente', userId: 'u-admin', userName: 'Laura Castillo', at: nowMinus(7, 20), note: 'Asignada a José Ramírez', type: 'assignment' },
-      { id: 'h-1000-3', previousStatus: 'Pendiente', newStatus: 'En proceso', userId: 'u-tech-1', userName: 'José Ramírez', at: nowMinus(7, 18), note: 'Trabajo iniciado', type: 'status' },
-      { id: 'h-1000-4', previousStatus: 'En proceso', newStatus: 'Resuelta', userId: 'u-tech-1', userName: 'José Ramírez', at: nowMinus(7, 16), note: 'Se reemplazó el tubo LED y se revisó la conexión del plafón.', type: 'status' },
-    ],
-  },
-];
-
-const STORAGE_KEY = 'cr2-maintenance-beta-v1';
-const SESSION_KEY = 'cr2-maintenance-session';
+// Las solicitudes siguen siendo locales. No mezclar IDs ficticios antiguos con
+// los identificadores reales de PostgreSQL ni borrar el almacenamiento anterior.
+const STORAGE_KEY = 'cr2-maintenance-local-requests-v2';
 
 const icons: Record<string, ReactNode> = {
   home: <><path d="m3 11 9-8 9 8"/><path d="M5 10v10h14V10"/><path d="M9 20v-6h6v6"/></>,
@@ -148,16 +78,23 @@ function StatusPill({ status }: { status: Status }) {
 
 function App() {
   const [requests, setRequests] = useState<MaintenanceRequest[]>(() => {
-    try { return JSON.parse(localStorage.getItem(STORAGE_KEY) || '') || INITIAL_REQUESTS; } catch { return INITIAL_REQUESTS; }
+    try {
+      const saved: unknown = JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]');
+      return Array.isArray(saved) ? saved : [];
+    } catch { return []; }
   });
-  const [currentUser, setCurrentUser] = useState<User | null>(() => {
-    const id = sessionStorage.getItem(SESSION_KEY);
-    return USERS.find(u => u.id === id) || null;
-  });
+  const { user: currentUser, checking, loggingOut, sessionError, login, logout, retrySession, invalidateSession } = useAuth();
   const [view, setView] = useState<View>('dashboard');
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [toast, setToast] = useState<{ title: string; text: string } | null>(null);
+
+  useEffect(() => {
+    setView('dashboard');
+    setSelectedId(null);
+    setSidebarOpen(false);
+    setToast(null);
+  }, [currentUser?.id, currentUser?.role]);
 
   useEffect(() => { localStorage.setItem(STORAGE_KEY, JSON.stringify(requests)); }, [requests]);
   useEffect(() => {
@@ -180,35 +117,26 @@ function App() {
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
-  const login = (user: User) => {
-    sessionStorage.setItem(SESSION_KEY, user.id);
-    setCurrentUser(user);
-    setView('dashboard');
-  };
-
-  const logout = () => {
-    sessionStorage.removeItem(SESSION_KEY);
-    setCurrentUser(null);
-    setView('dashboard');
-  };
-
   const notify = (title: string, text: string) => setToast({ title, text });
 
-  if (!currentUser) return <Login onLogin={login}/>;
+  if (checking) return <div className="session-screen" role="status">Comprobando sesión…</div>;
+  if (!currentUser) return <Login onLogin={login} sessionError={sessionError} onRetry={retrySession}/>;
 
   const selected = visibleRequests.find(r => r.id === selectedId);
 
   return (
     <div className="app-shell">
-      <Sidebar user={currentUser} view={view} open={sidebarOpen} navigate={navigate} logout={logout}/>
+      <Sidebar user={currentUser} view={view} open={sidebarOpen} navigate={navigate} logout={() => { void logout(); }} loggingOut={loggingOut}/>
       {sidebarOpen && <button className="sidebar-scrim" onClick={() => setSidebarOpen(false)} aria-label="Cerrar menú"/>}
       <main className="main-area">
         <Header user={currentUser} onMenu={() => setSidebarOpen(true)} navigate={navigate}/>
         <div className="page-wrap">
+          <div className="integration-notice" role="note">Acceso conectado a PostgreSQL. Las solicitudes todavía se guardan solo en este navegador; su integración está pendiente.</div>
+          {sessionError && <div className="session-error" role="alert">{sessionError}<button type="button" disabled={loggingOut} onClick={retrySession}>Comprobar sesión</button></div>}
           {view === 'dashboard' && <Dashboard user={currentUser} requests={visibleRequests} navigate={navigate}/>}
           {view === 'requests' && <RequestList user={currentUser} requests={visibleRequests} navigate={navigate}/>}
           {view === 'new' && currentUser.role === 'resident' && <NewRequest user={currentUser} onCreate={(request) => { setRequests(prev => [request, ...prev]); notify('Solicitud registrada', `El código ${request.code} fue generado correctamente.`); navigate('detail', request.id); }} onCancel={() => navigate('requests')}/>}
-          {view === 'detail' && selected && <RequestDetail user={currentUser} request={selected} setRequests={setRequests} notify={notify} navigate={navigate}/>}
+          {view === 'detail' && selected && <RequestDetail key={selected.id} user={currentUser} request={selected} setRequests={setRequests} notify={notify} navigate={navigate} onSessionExpired={invalidateSession}/>}
           {view === 'detail' && !selected && <EmptyState title="Solicitud no disponible" text="No tienes permiso para consultar este caso o ya no existe." onBack={() => navigate('requests')}/>}
         </div>
       </main>
@@ -217,21 +145,24 @@ function App() {
   );
 }
 
-function Login({ onLogin }: { onLogin: (user: User) => void }) {
+function Login({ onLogin, sessionError, onRetry }: { onLogin: (email: string, password: string) => Promise<void>; sessionError: string; onRetry: () => void }) {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
+  const [submitting, setSubmitting] = useState(false);
 
-  const submit = (e: FormEvent) => {
+  const submit = async (e: FormEvent) => {
     e.preventDefault();
-    const user = USERS.find(u => u.email === email.trim().toLowerCase() && u.password === password);
-    if (!user) { setError('Correo o contraseña incorrectos. Usa una cuenta de demostración.'); return; }
-    onLogin(user);
-  };
-
-  const chooseDemo = (role: Role) => {
-    const user = USERS.find(u => u.role === role)!;
-    setEmail(user.email); setPassword(user.password); setError('');
+    if (submitting) return;
+    setSubmitting(true);
+    setError('');
+    try {
+      await onLogin(email.trim(), password);
+    } catch (failure) {
+      setError(failure instanceof ApiError ? failure.message : 'No se pudo iniciar sesión. Inténtalo de nuevo.');
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   return (
@@ -258,26 +189,21 @@ function Login({ onLogin }: { onLogin: (user: User) => void }) {
           <h2>Bienvenido de nuevo</h2>
           <p className="muted">Ingresa tus credenciales para continuar.</p>
           <form onSubmit={submit} className="login-form">
-            <label>Correo electrónico<input type="email" value={email} onChange={e => setEmail(e.target.value)} placeholder="nombre@correo.com" required/></label>
-            <label>Contraseña<input type="password" value={password} onChange={e => setPassword(e.target.value)} placeholder="Ingresa tu contraseña" required/></label>
-            {error && <div className="form-error"><Icon name="alert" size={17}/>{error}</div>}
-            <button className="btn primary wide" type="submit">Iniciar sesión <Icon name="arrow"/></button>
+            <label>Correo electrónico<input type="email" autoComplete="username" disabled={submitting} value={email} onChange={e => setEmail(e.target.value)} placeholder="nombre@correo.com" required/></label>
+            <label>Contraseña<input type="password" autoComplete="current-password" disabled={submitting} value={password} onChange={e => setPassword(e.target.value)} placeholder="Ingresa tu contraseña" required/></label>
+            {error && <div className="form-error" role="alert"><Icon name="alert" size={17}/>{error}</div>}
+            {sessionError && <div className="session-error" role="alert">{sessionError}<button type="button" disabled={submitting} onClick={onRetry}>Reintentar conexión</button></div>}
+            <button className="btn primary wide" type="submit" disabled={submitting}>{submitting ? 'Ingresando…' : 'Iniciar sesión'} <Icon name="arrow"/></button>
           </form>
-          <div className="demo-divider"><span>Cuentas de demostración</span></div>
-          <div className="demo-accounts">
-            <button onClick={() => chooseDemo('resident')}><span className="demo-icon resident"><Icon name="home"/></span><span><strong>Residente</strong><small>Registrar y consultar</small></span><Icon name="chevron" size={16}/></button>
-            <button onClick={() => chooseDemo('admin')}><span className="demo-icon admin"><Icon name="users"/></span><span><strong>Administrador</strong><small>Gestionar y asignar</small></span><Icon name="chevron" size={16}/></button>
-            <button onClick={() => chooseDemo('maintenance')}><span className="demo-icon tech"><Icon name="wrench"/></span><span><strong>Mantenimiento</strong><small>Atender trabajos</small></span><Icon name="chevron" size={16}/></button>
-          </div>
-          <p className="demo-hint">Selecciona un perfil y luego pulsa “Iniciar sesión”.</p>
+          <p className="demo-hint">Usa una cuenta de prueba preparada en PostgreSQL por el equipo.</p>
         </div>
-        <p className="beta-note">Prototipo beta · Persistencia simulada en este navegador</p>
+        <p className="beta-note">Versión beta · Autenticación mediante API REST</p>
       </section>
     </div>
   );
 }
 
-function Sidebar({ user, view, open, navigate, logout }: { user: User; view: View; open: boolean; navigate: (v: View) => void; logout: () => void }) {
+function Sidebar({ user, view, open, navigate, logout, loggingOut }: { user: User; view: View; open: boolean; navigate: (v: View) => void; logout: () => void; loggingOut: boolean }) {
   const requestLabel = user.role === 'maintenance' ? 'Mis trabajos' : user.role === 'admin' ? 'Solicitudes' : 'Mis solicitudes';
   return (
     <aside className={`sidebar ${open ? 'open' : ''}`}>
@@ -290,8 +216,8 @@ function Sidebar({ user, view, open, navigate, logout }: { user: User; view: Vie
       </nav>
       <div className="sidebar-footer">
         <div className="role-badge"><Icon name="shield" size={15}/>{user.role === 'resident' ? 'Residente' : user.role === 'admin' ? 'Administrador' : 'Mantenimiento'}</div>
-        <div className="side-user"><span className="avatar">{user.initials}</span><span><strong>{user.name}</strong><small>{user.unit || user.email}</small></span></div>
-        <button className="logout" onClick={logout}><Icon name="logout"/>Cerrar sesión</button>
+        <div className="side-user"><span className="avatar">{user.initials}</span><span><strong>{user.name}</strong><small>{user.email}</small></span></div>
+        <button className="logout" disabled={loggingOut} onClick={logout}><Icon name="logout"/>{loggingOut ? 'Cerrando sesión…' : 'Cerrar sesión'}</button>
       </div>
     </aside>
   );
@@ -445,16 +371,38 @@ function NewRequest({ user, onCreate, onCancel }: { user: User; onCreate: (r: Ma
   );
 }
 
-function RequestDetail({ user, request, setRequests, notify, navigate }: { user: User; request: MaintenanceRequest; setRequests: React.Dispatch<React.SetStateAction<MaintenanceRequest[]>>; notify: (t: string, x: string) => void; navigate: (v: View) => void }) {
+function RequestDetail({ user, request, setRequests, notify, navigate, onSessionExpired }: { user: User; request: MaintenanceRequest; setRequests: React.Dispatch<React.SetStateAction<MaintenanceRequest[]>>; notify: (t: string, x: string) => void; navigate: (v: View) => void; onSessionExpired: () => void }) {
   const [assignee, setAssignee] = useState(request.assignedTo || '');
   const [workDescription, setWorkDescription] = useState('');
   const [error, setError] = useState('');
-  const technicians = USERS.filter(u => u.role === 'maintenance');
+  const [technicians, setTechnicians] = useState<User[]>([]);
+  const [techniciansLoading, setTechniciansLoading] = useState(false);
+  const [techniciansError, setTechniciansError] = useState('');
+  const [techniciansRetry, setTechniciansRetry] = useState(0);
+
+  useEffect(() => {
+    if (user.role !== 'admin' || request.status !== 'Pendiente') return;
+    const controller = new AbortController();
+    setTechniciansLoading(true);
+    setTechniciansError('');
+    void getTechnicians(controller.signal).then((items) => {
+      if (!controller.signal.aborted) setTechnicians(items);
+    }).catch((failure: unknown) => {
+      if (controller.signal.aborted) return;
+      setTechnicians([]);
+      if (failure instanceof ApiError && failure.status === 401) onSessionExpired();
+      else setTechniciansError(failure instanceof ApiError ? failure.message : 'No se pudieron cargar los trabajadores.');
+    }).finally(() => {
+      if (!controller.signal.aborted) setTechniciansLoading(false);
+    });
+    return () => controller.abort();
+  }, [user.role, request.status, techniciansRetry, onSessionExpired]);
 
   const assign = () => {
     if (user.role !== 'admin') { setError('Acción bloqueada: tu cuenta no tiene este permiso.'); return; }
     if (!assignee) { setError('Selecciona un trabajador para continuar.'); return; }
-    const tech = technicians.find(t => t.id === assignee)!;
+    const tech = technicians.find(t => t.id === assignee);
+    if (!tech || techniciansLoading || techniciansError) { setError('Selecciona un trabajador disponible en la API.'); return; }
     const at = new Date().toISOString();
     setRequests(prev => prev.map(r => r.id === request.id ? { ...r, assignedTo: tech.id, assignedName: tech.name, history: [...r.history, { id: `h-${Date.now()}`, previousStatus: r.status, newStatus: r.status, userId: user.id, userName: user.name, at, note: `Asignada a ${tech.name}. El estado se conserva en ${r.status}.`, type: 'assignment' }] } : r));
     setError('');
@@ -514,7 +462,7 @@ function RequestDetail({ user, request, setRequests, notify, navigate }: { user:
             <div className="progress-track"><span className={request.status !== 'Pendiente' ? 'done' : 'active'}/><i/><span className={request.status === 'En proceso' ? 'active' : request.status === 'Resuelta' ? 'done' : ''}/><i/><span className={request.status === 'Resuelta' ? 'active' : ''}/></div>
             <div className="progress-labels"><small>Pendiente</small><small>En proceso</small><small>Resuelta</small></div>
           </section>
-          {user.role === 'admin' && request.status === 'Pendiente' && <section className="card action-card"><h3>Asignar trabajador</h3><p>La asignación conservará el estado <b>Pendiente</b>.</p><label>Trabajador<select value={assignee} onChange={e => setAssignee(e.target.value)}><option value="">Selecciona un trabajador</option>{technicians.map(t => <option value={t.id} key={t.id}>{t.name}</option>)}</select></label>{error && <small className="error-text block">{error}</small>}<button className="btn primary wide" onClick={assign}>{request.assignedTo ? 'Actualizar asignación' : 'Asignar solicitud'}</button></section>}
+          {user.role === 'admin' && request.status === 'Pendiente' && <section className="card action-card"><h3>Asignar trabajador</h3><p>La asignación conservará el estado <b>Pendiente</b>.</p><label>Trabajador<select value={assignee} disabled={techniciansLoading || !!techniciansError} onChange={e => setAssignee(e.target.value)}><option value="">{techniciansLoading ? 'Cargando trabajadores…' : 'Selecciona un trabajador'}</option>{technicians.map(t => <option value={t.id} key={t.id}>{t.name}</option>)}</select></label>{techniciansError && <div className="session-error" role="alert">{techniciansError}<button type="button" onClick={() => setTechniciansRetry(value => value + 1)}>Reintentar</button></div>}{error && <small className="error-text block">{error}</small>}<button className="btn primary wide" disabled={techniciansLoading || !!techniciansError || !technicians.length} onClick={assign}>{request.assignedTo ? 'Actualizar asignación' : 'Asignar solicitud'}</button></section>}
           {user.role === 'maintenance' && request.status === 'En proceso' && <section className="card action-card"><h3>Finalizar trabajo</h3><p>Describe el trabajo realizado antes de marcar la solicitud como resuelta.</p><label>Descripción del trabajo <span>*</span><textarea rows={5} value={workDescription} onChange={e => setWorkDescription(e.target.value)} placeholder="Detalla la reparación realizada..."/></label>{error && <small className="error-text block">{error}</small>}<button className="btn primary wide" onClick={() => transition('Resuelta')}><Icon name="check"/>Marcar como resuelta</button></section>}
           {user.role === 'maintenance' && request.status === 'Pendiente' && <div className="privacy-note"><Icon name="alert"/><p><strong>Siguiente paso</strong><br/>Inicia el trabajo para cambiar el estado a En proceso.</p></div>}
           <div className="security-card"><Icon name="shield"/><div><strong>Acceso protegido por rol</strong><p>Las acciones no autorizadas son rechazadas por el servicio local del prototipo.</p></div></div>
