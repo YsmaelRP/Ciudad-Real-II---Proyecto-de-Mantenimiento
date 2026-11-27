@@ -4,11 +4,14 @@ import helmet from 'helmet';
 import cookieParser from 'cookie-parser';
 import { createAuthRouter } from './auth/routes.js';
 import type { AuthRepository } from './auth/types.js';
+import { createRequestsRouter } from './requests/routes.js';
+import type { RequestRepository } from './requests/types.js';
 
 export function createApp(options: {
   frontendOrigin: string;
   checkDatabase?: () => Promise<void>;
   authRepository?: AuthRepository;
+  requestRepository?: RequestRepository;
   secureCookies?: boolean;
 }) {
   const app = express();
@@ -40,6 +43,13 @@ export function createApp(options: {
   app.use('/api', createAuthRouter({
     frontendOrigin: options.frontendOrigin,
     repository: options.authRepository,
+    secureCookies: options.secureCookies,
+  }));
+
+  app.use('/api', createRequestsRouter({
+    frontendOrigin: options.frontendOrigin,
+    authRepository: options.authRepository,
+    repository: options.requestRepository,
     secureCookies: options.secureCookies,
   }));
 
