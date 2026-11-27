@@ -16,7 +16,7 @@ React ya no usa `localStorage` como fuente de solicitudes. Las pantallas existen
 
 | Pendiente del informe anterior | Estado actual |
 |---|---|
-| `GET /api/categories` | Devuelve categorías activas desde PostgreSQL. El formulario usa sus IDs y nombres reales. |
+| `GET /api/categories` | Devuelve categorías activas desde PostgreSQL (`id`, `name` y `description`). El formulario usa sus IDs y nombres reales. |
 | `POST /api/requests` | Solo residentes. El autor se toma de la sesión; PostgreSQL genera `CR2-<id>` y se registra el evento `created`. |
 | `GET /api/requests` | Residente: propias. Mantenimiento: asignadas. Administración: todas. Acepta `search` y `status`. |
 | `GET /api/requests/:id` | Devuelve el caso y su historial. Los casos ajenos responden 404 sin revelar su existencia. |
@@ -24,7 +24,9 @@ React ya no usa `localStorage` como fuente de solicitudes. Las pantallas existen
 | `PATCH /api/requests/:id/status` | Solo el trabajador asignado. Avanza un paso; al resolver exige descripción y la guarda como `resolution`. |
 | Historial y rollback | Creación, asignación y cambio de estado comparten transacción. Un fallo del historial revierte la operación principal. |
 | Integración de React | Carga de catálogo, registro, listados filtrados, detalle, asignación, estados e historial desde la API. |
-| Pruebas | 41 pruebas simuladas del backend y 29 del frontend; tres integraciones reales quedan opt-in por variable de entorno. |
+| Pruebas | 45 pruebas simuladas del backend y 35 del frontend; cuatro integraciones reales quedan opt-in por variable de entorno. |
+
+La rama `feat/mi-primer-cambio` de otro integrante aportó el módulo dedicado de categorías y su cliente React. Se conservó ese diseño en lugar del catálogo duplicado dentro del módulo de solicitudes: hay una sola ruta `GET /api/categories`, un solo `src/api/categories.ts` y una sola definición de tipos. Las pruebas de esa rama se mantuvieron y adaptaron al flujo completo.
 
 El contrato detallado de rutas, errores y permisos está en [backend/README.md](../backend/README.md); el recorrido de prueba desde React está en [README.md](../README.md).
 
@@ -42,16 +44,16 @@ El contrato detallado de rutas, errores y permisos está en [backend/README.md](
 | Ámbito | Resultado |
 |---|---|
 | Backend: `npm run typecheck` | Correcto. |
-| Backend: `npm test` | 41 aprobadas, 0 fallidas, 3 omitidas (requieren PostgreSQL de prueba). |
+| Backend: `npm test` | 45 aprobadas, 0 fallidas, 4 omitidas (requieren PostgreSQL de prueba). |
 | Backend: `npm run build` | Correcto. |
-| Frontend: `npm run typecheck` y `npm test` | Correctos; 29 pruebas aprobadas. |
+| Frontend: `npm run typecheck` y `npm test` | Correctos; 35 pruebas aprobadas. |
 | Frontend: `npm run build` | Correcto. |
 
 Las pruebas simuladas comprueban respuestas HTTP y lógica de pantallas con datos de ejemplo. No sustituyen la ejecución contra una instancia real ni la comprobación en el equipo de otro integrante.
 
 ## 5. Queda para la entrega final
 
-1. Ejecutar las tres pruebas de integración con `TEST_DATABASE_URL`, `TEST_AUTH_DATABASE_URL` y `TEST_REQUESTS_DATABASE_URL` sobre una base aislada con los scripts y el seed aplicados.
+1. Ejecutar las cuatro pruebas de integración con `TEST_DATABASE_URL`, `TEST_AUTH_DATABASE_URL` (dos pruebas: autenticación y catálogo) y `TEST_REQUESTS_DATABASE_URL` sobre una base aislada con los scripts y el seed aplicados.
 2. Repetir la instalación siguiendo los README en el equipo de otro integrante.
 3. Hacer el recorrido completo con las cinco cuentas ficticias y verificar los tres roles desde React.
 4. Preparar el informe final de la actividad 18 con capturas y el registro de errores corregidos.

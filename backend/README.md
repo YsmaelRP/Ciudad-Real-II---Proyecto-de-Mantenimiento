@@ -69,18 +69,20 @@ Todas las rutas de esta sección exigen una sesión válida. Las mutaciones tamb
 
 | Método y ruta | Acceso / resultado |
 |---|---|
-| `GET /api/categories` | Cualquier rol. Devuelve `{ "categories": [...] }` con los nombres e IDs reales de la base. |
+| `GET /api/categories` | Cualquier rol. Devuelve `{ "categories": [{ "id": "3", "name": "Climatización", "description": "..." }] }` con los datos reales de la base. |
 | `POST /api/requests` | Solo residentes. Cuerpo `{ "categoryId": "1", "location": "...", "description": "..." }`. Devuelve 201 con `{ "request": ... }`. |
 | `GET /api/requests` | Residente: propias. Mantenimiento: asignadas. Administración: todas. Acepta `?search=...&status=Pendiente`. |
 | `GET /api/requests/:id` | Devuelve el detalle con su historial. Un caso ajeno o inexistente responde 404 sin revelar su existencia. |
 | `PATCH /api/requests/:id/assignment` | Solo administración. Cuerpo `{ "technicianId": "4" }`. Solo casos `Pendiente`; conserva el estado. |
 | `PATCH /api/requests/:id/status` | Solo el trabajador asignado. Cuerpo `{ "status": "En proceso" }` o `{ "status": "Resuelta", "description": "..." }`. |
 
+El catálogo vive en su propio módulo (`backend/src/categories/`) y React lo consume desde `src/api/categories.ts`; las solicitudes están en `backend/src/requests/` y `src/api/requests.ts`. No hay dos rutas `GET /api/categories` ni dos clientes del catálogo.
+
 El código `CR2-<id>` lo genera PostgreSQL al insertar; no se acepta desde el cliente. Las transiciones son `Pendiente → En proceso → Resuelta`: no se permiten saltos, retrocesos ni reapertura. Al resolver se exige la descripción del trabajo, que se guarda en `historial_estados.observacion` y se devuelve como `resolution`.
 
 Cada operación de escritura usa una sola conexión y transacción con `SELECT ... FOR UPDATE` cuando hay que bloquear la solicitud. La creación, la asignación y el cambio de estado insertan su evento de historial antes de `COMMIT`; si falla el historial, `ROLLBACK` revierte también el cambio principal. El índice parcial de `asignaciones` impide dos asignaciones activas.
 
-Errores de dominio: `400 INVALID_INPUT` (campos obligatorios o categoría/trabajador no válidos), `403 FORBIDDEN` (rol no autorizado), `404 NOT_FOUND` (caso inexistente o no visible), `409 INVALID_STATE` (asignar un caso que ya no está pendiente) y `409 INVALID_TRANSITION` (salto o retroceso de estado). Los errores inesperados siguen respondiendo `500 INTERNAL_ERROR` sin detalles.
+Errores de dominio: `400 INVALID_INPUT` (campos obligatorios o categoría/trabajador no válidos), `403 FORBIDDEN` (rol no autorizado), `404 NOT_FOUND` (caso inexistente o no visible), `409 INVALID_STATE` (asignar un caso que ya no está pendiente) y `409 INVALID_TRANSITION` (salto o retroceso de estado). Si falta el catálogo, `/api/categories` responde `503 CATALOG_UNAVAILABLE`; si falta el acceso, `503 AUTH_UNAVAILABLE`; si falta el servicio de solicitudes, `503 REQUESTS_UNAVAILABLE`. Los errores inesperados siguen respondiendo `500 INTERNAL_ERROR` sin detalles.
 
 ### Prueba manual en PowerShell
 
@@ -124,7 +126,7 @@ Las dependencias del frontend y del backend tienen archivos `package-lock.json` 
 Las pruebas normales usan conexiones simuladas: cubren salud, configuración, sesiones, permisos, validación, transiciones de estado, historial y `ROLLBACK` cuando falla una inserción. Las pruebas reales se habilitan explícitamente y no cargan `.env`:
 
 - `TEST_DATABASE_URL`: prueba de conectividad con `SELECT 1`, sin modificar tablas.
-- `TEST_AUTH_DATABASE_URL`: base de prueba con los scripts hasta `004_sesiones.sql` y el seed cargados. Verifica login bcrypt de los tres roles, sesión persistida, permisos, rotación, expiración y logout. Crea y elimina solo sus propias sesiones; no modifica cuentas ni ejecuta migraciones.
+- `TEST_AUTH_DATABASE_URL`: base de prueba con los scripts hasta `004_sesiones.sql` y el seed cargados. Verifica login bcrypt de los tres roles, sesión persistida, permisos, rotación, expiración y logout. También comprueba en solo lectura que `/api/categories` devuelve el catálogo activo. Crea y elimina solo sus propias sesiones; no modifica cuentas ni categorías y no ejecuta migraciones.
 - `TEST_REQUESTS_DATABASE_URL`: base de prueba con el esquema completo y el seed cargados. Recorre categoría → registro → asignación → inicio → resolución, comprueba la persistencia del historial y los permisos por rol, y elimina solo la solicitud y las sesiones creadas por la prueba.
 
-Definir las variables en la terminal antes de `npm test`, nunca en archivos versionados. Sin esas variables se omiten tres pruebas; con las 41 pruebas simuladas se obtiene un total de 44. Las integraciones reales deben ejecutarse en una base aislada antes de la entrega; las simuladas no sustituyen una prueba integral desde React contra PostgreSQL.
+Definir las variables en la terminal antes de `npm test`, nunca en archivos versionados. Sin esas variables se omiten cuatro pruebas; con las 45 pruebas simuladas se obtiene un total de 49. Las integraciones reales deben ejecutarse en una base aislada antes de la entrega; las simuladas no sustituyen una prueba integral desde React contra PostgreSQL.

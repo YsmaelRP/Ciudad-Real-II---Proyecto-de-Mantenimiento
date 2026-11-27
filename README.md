@@ -52,7 +52,7 @@ npm run build
 
 La compilación se genera en `dist/`.
 
-Las 29 pruebas del frontend simulan las respuestas HTTP y comprueban acceso, restauración de sesión, catálogo, registro, listados filtrados, asignación, estados y ausencia de `localStorage`. Las pruebas de la API y las integraciones opcionales con PostgreSQL se ejecutan desde `backend/` como indica su README.
+Las 35 pruebas del frontend simulan las respuestas HTTP y comprueban acceso, restauración de sesión, catálogo, registro, listados filtrados, asignación, estados y ausencia de `localStorage`. Las pruebas de la API y las integraciones opcionales con PostgreSQL se ejecutan desde `backend/` como indica su README.
 
 ## Probar la beta desde React
 
