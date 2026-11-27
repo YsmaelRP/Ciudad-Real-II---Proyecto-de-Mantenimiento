@@ -3,8 +3,6 @@ import { ApiError, apiRequest } from './client';
 export type Status = 'Pendiente' | 'En proceso' | 'Resuelta';
 export type HistoryType = 'created' | 'assignment' | 'status';
 
-export type Category = { id: string; name: string };
-
 export type HistoryEntry = {
   id: string;
   previousStatus: Status | null;
@@ -113,16 +111,6 @@ function queryOf(filters: RequestFilters): string {
   if (filters.status && filters.status !== 'Todas') params.set('status', filters.status);
   const query = params.toString();
   return query ? `?${query}` : '';
-}
-
-export async function getCategories(signal?: AbortSignal): Promise<Category[]> {
-  const data = await apiRequest<unknown>('/categories', { signal });
-  const response = object(data, 'el catálogo');
-  if (!Array.isArray(response.categories)) invalid('La API devolvió un catálogo no válido.');
-  return response.categories.map((value) => {
-    const category = object(value, 'una categoría');
-    return { id: text(category.id, 'id', 'una categoría'), name: text(category.name, 'name', 'una categoría') };
-  });
 }
 
 export async function listRequests(filters: RequestFilters = {}, signal?: AbortSignal): Promise<MaintenanceRequest[]> {

@@ -4,6 +4,7 @@ import { createApp } from './app.js';
 import { readConfig } from './config.js';
 import { createDatabase } from './database.js';
 import { createAuthRepository } from './auth/repository.js';
+import { createCategoryRepository } from './categories/repository.js';
 import { createRequestRepository } from './requests/repository.js';
 
 loadEnv({ path: fileURLToPath(new URL('../.env', import.meta.url)), quiet: true });
@@ -14,6 +15,7 @@ const app = createApp({
   frontendOrigin: config.frontendOrigin,
   checkDatabase: database?.checkConnection,
   authRepository: database ? createAuthRepository(database.pool) : undefined,
+  categoryRepository: database ? createCategoryRepository(database.pool) : undefined,
   requestRepository: database ? createRequestRepository(database.pool) : undefined,
   secureCookies: config.secureCookies,
 });

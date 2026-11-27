@@ -1,14 +1,13 @@
 import { FormEvent, ReactNode, useCallback, useEffect, useState } from 'react';
 import { getTechnicians, type AuthUser } from './api/auth';
+import { getCategories, type Category } from './api/categories';
 import { ApiError } from './api/client';
 import {
   assignRequest,
   changeStatus,
   createRequest,
-  getCategories,
   getRequest,
   listRequests,
-  type Category,
   type MaintenanceRequest,
   type Status,
 } from './api/requests';

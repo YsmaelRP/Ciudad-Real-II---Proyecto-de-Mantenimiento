@@ -2,7 +2,6 @@ import type { Pool, PoolClient } from 'pg';
 import type { SessionUser } from '../auth/types.js';
 import { RequestError } from './errors.js';
 import type {
-  Category,
   HistoryEntry,
   NewRequestInput,
   RequestFilters,
@@ -147,14 +146,6 @@ function permissionCondition(user: SessionUser): { sql: string; value?: number }
 
 export function createRequestRepository(pool: Pool): RequestRepository {
   return {
-    async listCategories() {
-      const result = await pool.query<Category>(
-        `SELECT id_categoria AS id, nombre AS name FROM categorias
-          WHERE activa = TRUE ORDER BY nombre, id_categoria`,
-      );
-      return result.rows.map((row) => ({ id: String(row.id), name: row.name }));
-    },
-
     async createRequest(input) {
       return withTransaction(pool, async (client) => {
         const category = await client.query(

@@ -1,9 +1,12 @@
 import cors from 'cors';
-import express, { type ErrorRequestHandler } from 'express';
+import express, { type ErrorRequestHandler, type RequestHandler } from 'express';
 import helmet from 'helmet';
 import cookieParser from 'cookie-parser';
 import { createAuthRouter } from './auth/routes.js';
+import { requireSession } from './auth/middleware.js';
 import type { AuthRepository } from './auth/types.js';
+import { createCategoriesRouter } from './categories/routes.js';
+import type { CategoryRepository } from './categories/types.js';
 import { createRequestsRouter } from './requests/routes.js';
 import type { RequestRepository } from './requests/types.js';
 
@@ -11,6 +14,7 @@ export function createApp(options: {
   frontendOrigin: string;
   checkDatabase?: () => Promise<void>;
   authRepository?: AuthRepository;
+  categoryRepository?: CategoryRepository;
   requestRepository?: RequestRepository;
   secureCookies?: boolean;
 }) {
@@ -44,6 +48,18 @@ export function createApp(options: {
     frontendOrigin: options.frontendOrigin,
     repository: options.authRepository,
     secureCookies: options.secureCookies,
+  }));
+
+  // El catálogo tiene su propio módulo: una sola ruta /categories y un único contrato.
+  const authenticate: RequestHandler = options.authRepository
+    ? requireSession(options.authRepository, options.secureCookies ?? false)
+    : (_req, res) => {
+      res.status(503).json({ error: { code: 'AUTH_UNAVAILABLE', message: 'El servicio de acceso no está configurado.' } });
+    };
+
+  app.use('/api', createCategoriesRouter({
+    repository: options.categoryRepository,
+    authenticate,
   }));
 
   app.use('/api', createRequestsRouter({

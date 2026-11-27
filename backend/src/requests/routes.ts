@@ -21,13 +21,13 @@ export function createRequestsRouter(options: {
   const router = Router();
   const unavailable = () => options.authRepository === undefined || options.repository === undefined;
 
-  router.use(['/categories', '/requests'], (_req, res, next) => {
+  router.use('/requests', (_req, res, next) => {
     res.set('Cache-Control', 'no-store');
     next();
   });
 
   if (unavailable()) {
-    router.use(['/categories', '/requests'], (_req, res) => {
+    router.use('/requests', (_req, res) => {
       res.status(503).json({ error: { code: 'REQUESTS_UNAVAILABLE', message: 'El servicio de solicitudes no está configurado.' } });
     });
     return router;
@@ -36,14 +36,6 @@ export function createRequestsRouter(options: {
   const { repository, authRepository } = options;
   const authenticated = requireSession(authRepository!, options.secureCookies ?? false);
   const trustedJson = requireTrustedJson(options.frontendOrigin);
-
-  router.get('/categories', authenticated, async (_req, res) => {
-    try {
-      res.json({ categories: await repository!.listCategories() });
-    } catch (error) {
-      if (!sendRequestError(res, error)) throw error;
-    }
-  });
 
   router.post('/requests', authenticated, requireRoles('residente'), trustedJson, async (req, res) => {
     try {

@@ -3,11 +3,6 @@ import type { SessionUser } from '../auth/types.js';
 export type RequestStatus = 'Pendiente' | 'En proceso' | 'Resuelta';
 export type HistoryType = 'created' | 'assignment' | 'status';
 
-export type Category = {
-  id: string;
-  name: string;
-};
-
 export type HistoryEntry = {
   id: string;
   previousStatus: RequestStatus | null;
@@ -48,7 +43,6 @@ export type NewRequestInput = {
 };
 
 export interface RequestRepository {
-  listCategories(): Promise<Category[]>;
   createRequest(input: NewRequestInput): Promise<RequestRecord>;
   listRequests(user: SessionUser, filters: RequestFilters): Promise<RequestRecord[]>;
   findRequest(user: SessionUser, id: number): Promise<RequestRecord | undefined>;
