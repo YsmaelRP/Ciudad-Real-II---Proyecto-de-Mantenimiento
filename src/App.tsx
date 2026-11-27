@@ -1,5 +1,6 @@
 import { FormEvent, ReactNode, useEffect, useMemo, useState } from 'react';
 import { getTechnicians, type AuthUser } from './api/auth';
+import { getCategories, type Category } from './api/categories';
 import { ApiError } from './api/client';
 import { useAuth } from './auth/useAuth';
 
@@ -135,7 +136,7 @@ function App() {
           {sessionError && <div className="session-error" role="alert">{sessionError}<button type="button" disabled={loggingOut} onClick={retrySession}>Comprobar sesión</button></div>}
           {view === 'dashboard' && <Dashboard user={currentUser} requests={visibleRequests} navigate={navigate}/>}
           {view === 'requests' && <RequestList user={currentUser} requests={visibleRequests} navigate={navigate}/>}
-          {view === 'new' && currentUser.role === 'resident' && <NewRequest user={currentUser} onCreate={(request) => { setRequests(prev => [request, ...prev]); notify('Solicitud registrada', `El código ${request.code} fue generado correctamente.`); navigate('detail', request.id); }} onCancel={() => navigate('requests')}/>}
+          {view === 'new' && currentUser.role === 'resident' && <NewRequest user={currentUser} onCreate={(request) => { setRequests(prev => [request, ...prev]); notify('Solicitud registrada', `El código ${request.code} fue generado correctamente.`); navigate('detail', request.id); }} onCancel={() => navigate('requests')} onSessionExpired={invalidateSession}/>}
           {view === 'detail' && selected && <RequestDetail key={selected.id} user={currentUser} request={selected} setRequests={setRequests} notify={notify} navigate={navigate} onSessionExpired={invalidateSession}/>}
           {view === 'detail' && !selected && <EmptyState title="Solicitud no disponible" text="No tienes permiso para consultar este caso o ya no existe." onBack={() => navigate('requests')}/>}
         </div>
@@ -317,25 +318,56 @@ function RequestTable({ requests, navigate, compact = false, showResident = fals
   );
 }
 
-function NewRequest({ user, onCreate, onCancel }: { user: User; onCreate: (r: MaintenanceRequest) => void; onCancel: () => void }) {
-  const [category, setCategory] = useState('');
+function NewRequest({ user, onCreate, onCancel, onSessionExpired }: { user: User; onCreate: (r: MaintenanceRequest) => void; onCancel: () => void; onSessionExpired: () => void }) {
+  const [categories, setCategories] = useState<Category[]>([]);
+  const [categoriesLoading, setCategoriesLoading] = useState(true);
+  const [categoriesError, setCategoriesError] = useState('');
+  const [catalogRetry, setCatalogRetry] = useState(0);
+  const [categoryId, setCategoryId] = useState('');
   const [location, setLocation] = useState('');
   const [description, setDescription] = useState('');
   const [errors, setErrors] = useState<Record<string, string>>({});
+
+  useEffect(() => {
+    const controller = new AbortController();
+    setCategoriesLoading(true);
+    setCategoriesError('');
+    void getCategories(controller.signal).then((items) => {
+      if (controller.signal.aborted) return;
+      setCategories(items);
+      setCategoryId(current => items.some(item => item.id === current) ? current : '');
+    }).catch((failure: unknown) => {
+      if (controller.signal.aborted) return;
+      setCategories([]);
+      setCategoryId('');
+      if (failure instanceof ApiError && failure.status === 401) onSessionExpired();
+      else setCategoriesError(failure instanceof ApiError ? failure.message : 'No se pudieron cargar las categorías.');
+    }).finally(() => {
+      if (!controller.signal.aborted) setCategoriesLoading(false);
+    });
+    return () => controller.abort();
+  }, [catalogRetry, onSessionExpired]);
+
+  // Las solicitudes locales guardan el nombre, igual que los casos ya almacenados.
+  const selectedCategory = categories.find(item => item.id === categoryId);
+  const catalogAvailable = !categoriesLoading && !categoriesError && categories.length > 0;
+  const canSubmit = catalogAvailable && !!selectedCategory;
+  const retryCatalog = () => setCatalogRetry(value => value + 1);
+
   const submit = (e: FormEvent) => {
     e.preventDefault();
     const nextErrors: Record<string, string> = {};
-    if (!category) nextErrors.category = 'Selecciona una categoría.';
+    if (!selectedCategory) nextErrors.category = categoriesError || 'Selecciona una categoría válida.';
     if (!location.trim()) nextErrors.location = 'Indica la ubicación del problema.';
     if (description.trim().length < 15) nextErrors.description = 'Describe el problema con al menos 15 caracteres.';
     setErrors(nextErrors);
-    if (Object.keys(nextErrors).length) return;
+    if (!canSubmit || Object.keys(nextErrors).length) return;
     const now = new Date().toISOString();
     const suffix = String(Date.now()).slice(-5);
     const code = `CR2-${new Date().getFullYear()}-${suffix}`;
     onCreate({
       id: `req-${Date.now()}`, code, residentId: user.id, residentName: user.name,
-      category, location: location.trim(), description: description.trim(), status: 'Pendiente', createdAt: now,
+      category: selectedCategory.name, location: location.trim(), description: description.trim(), status: 'Pendiente', createdAt: now,
       history: [{ id: `h-${Date.now()}`, previousStatus: 'Pendiente', newStatus: 'Pendiente', userId: user.id, userName: user.name, at: now, note: 'Solicitud registrada', type: 'created' }],
     });
   };
@@ -347,8 +379,9 @@ function NewRequest({ user, onCreate, onCancel }: { user: User; onCreate: (r: Ma
           <div className="form-section-title"><span>1</span><div><h2>Detalles de la incidencia</h2><p>Proporciona la información necesaria para atender el caso.</p></div></div>
           <div className="field-grid">
             <label className="field">Categoría <span>*</span>
-              <select value={category} onChange={e => setCategory(e.target.value)} className={errors.category ? 'invalid' : ''}>
-                <option value="">Selecciona una categoría</option><option>Plomería</option><option>Electricidad</option><option>Climatización</option><option>Áreas comunes</option><option>Carpintería</option><option>Otro</option>
+              <select value={categoryId} disabled={!catalogAvailable} onChange={e => setCategoryId(e.target.value)} className={errors.category ? 'invalid' : ''}>
+                <option value="">{categoriesLoading ? 'Cargando categorías…' : categoriesError ? 'Categorías no disponibles' : categories.length ? 'Selecciona una categoría' : 'Sin categorías disponibles'}</option>
+                {categories.map(item => <option value={item.id} key={item.id}>{item.name}</option>)}
               </select>{errors.category && <small className="error-text">{errors.category}</small>}
             </label>
             <label className="field">Ubicación <span>*</span>
@@ -356,11 +389,14 @@ function NewRequest({ user, onCreate, onCancel }: { user: User; onCreate: (r: Ma
               {errors.location && <small className="error-text">{errors.location}</small>}
             </label>
           </div>
+          {categoriesLoading && <p className="muted" role="status">Cargando categorías desde la API…</p>}
+          {!categoriesLoading && !categoriesError && !categories.length && <div className="session-error" role="status">El catálogo de categorías está vacío.<button type="button" onClick={retryCatalog}>Reintentar</button></div>}
+          {!categoriesLoading && categoriesError && <div className="session-error" role="alert">{categoriesError}<button type="button" onClick={retryCatalog}>Reintentar</button></div>}
           <label className="field">Descripción del problema <span>*</span>
             <textarea value={description} onChange={e => setDescription(e.target.value)} className={errors.description ? 'invalid' : ''} rows={6} maxLength={500} placeholder="Describe qué sucede, desde cuándo y cualquier detalle que pueda ayudar al equipo..."/>
             <span className="char-count">{description.length}/500</span>{errors.description && <small className="error-text">{errors.description}</small>}
           </label>
-          <div className="form-actions"><button type="button" className="btn secondary" onClick={onCancel}>Cancelar</button><button type="submit" className="btn primary">Registrar solicitud <Icon name="arrow" size={17}/></button></div>
+          <div className="form-actions"><button type="button" className="btn secondary" onClick={onCancel}>Cancelar</button><button type="submit" className="btn primary" disabled={!canSubmit}>Registrar solicitud <Icon name="arrow" size={17}/></button></div>
         </form>
         <aside className="form-aside">
           <div className="info-card"><span><Icon name="file"/></span><h3>¿Qué sucederá después?</h3><ol><li><b>1</b><span>Recibirás un código único para consultar tu caso.</span></li><li><b>2</b><span>Administración revisará y asignará la solicitud.</span></li><li><b>3</b><span>Podrás seguir cada cambio desde tu panel.</span></li></ol></div>
