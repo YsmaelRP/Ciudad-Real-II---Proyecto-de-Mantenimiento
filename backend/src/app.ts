@@ -1,14 +1,18 @@
 import cors from 'cors';
-import express, { type ErrorRequestHandler } from 'express';
+import express, { type ErrorRequestHandler, type RequestHandler } from 'express';
 import helmet from 'helmet';
 import cookieParser from 'cookie-parser';
 import { createAuthRouter } from './auth/routes.js';
+import { requireSession } from './auth/middleware.js';
 import type { AuthRepository } from './auth/types.js';
+import { createCategoriesRouter } from './categories/routes.js';
+import type { CategoryRepository } from './categories/types.js';
 
 export function createApp(options: {
   frontendOrigin: string;
   checkDatabase?: () => Promise<void>;
   authRepository?: AuthRepository;
+  categoryRepository?: CategoryRepository;
   secureCookies?: boolean;
 }) {
   const app = express();
@@ -41,6 +45,17 @@ export function createApp(options: {
     frontendOrigin: options.frontendOrigin,
     repository: options.authRepository,
     secureCookies: options.secureCookies,
+  }));
+
+  const authenticate: RequestHandler = options.authRepository
+    ? requireSession(options.authRepository, options.secureCookies)
+    : (_req, res) => {
+      res.status(503).json({ error: { code: 'AUTH_UNAVAILABLE', message: 'El servicio de acceso no está configurado.' } });
+    };
+
+  app.use('/api', createCategoriesRouter({
+    repository: options.categoryRepository,
+    authenticate,
   }));
 
   app.use((_req, res) => {

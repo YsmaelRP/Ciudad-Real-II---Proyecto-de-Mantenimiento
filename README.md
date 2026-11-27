@@ -6,7 +6,7 @@ Proyecto de la asignatura INF-386-03 de la UNPHU. El sistema permitirá a los re
 
 El frontend está hecho con React, TypeScript y Vite. Incluye paneles para los tres roles, registro de solicitudes, asignaciones, estados, historial y filtros.
 
-El acceso de React ya utiliza la API: inicio de sesión, recuperación de sesión y cierre. Las cuentas y sesiones se guardan en PostgreSQL, y la lista de técnicos se obtiene del servidor. Las solicitudes, asignaciones e historial siguen siendo una simulación local; sus rutas e integración todavía están pendientes.
+El acceso de React ya utiliza la API: inicio de sesión, recuperación de sesión y cierre. Las cuentas y sesiones se guardan en PostgreSQL; la lista de técnicos y las categorías del formulario **Nueva solicitud** se obtienen del servidor. Las solicitudes, asignaciones e historial siguen siendo una simulación local; sus rutas e integración todavía están pendientes.
 
 ## Ejecutar el frontend
 
@@ -52,7 +52,7 @@ npm run build
 
 La compilación se genera en `dist/`.
 
-Las 21 pruebas del frontend simulan las respuestas HTTP y comprueban el formulario, las cookies incluidas en las peticiones, restauración, errores y cierre de sesión. Las pruebas reales de PostgreSQL se ejecutan desde `backend/` como indica su README.
+Las 33 pruebas del frontend simulan las respuestas HTTP y comprueban el formulario, el catálogo de categorías (carga, catálogo vacío, errores, reintento y sesión expirada), las cookies incluidas en las peticiones, restauración, errores y cierre de sesión. Las pruebas reales de PostgreSQL se ejecutan desde `backend/` como indica su README.
 
 ## Probar el acceso desde React
 
@@ -63,6 +63,13 @@ Las 21 pruebas del frontend simulan las respuestas HTTP y comprueban el formular
 5. Si la API está detenida, debe aparecer un mensaje de conexión, sin acceso de respaldo.
 
 La sesión también se vuelve a comprobar al recuperar el foco de la ventana y cada minuto mientras la página está visible. El token queda en una cookie HttpOnly; React no lo lee ni lo guarda en el almacenamiento del navegador.
+
+## Probar las categorías desde React
+
+1. Iniciar sesión y abrir **Nueva solicitud** con una cuenta de residente.
+2. El selector muestra únicamente las categorías activas de `GET /api/categories`; ya no hay opciones escritas a mano. Durante la carga, con un catálogo vacío o ante un error de conexión, el selector y el envío permanecen deshabilitados. Los errores ofrecen **Reintentar** y no se inventan categorías de respaldo.
+3. Una respuesta 401 al cargar el catálogo usa el mismo aviso de sesión expirada que el resto de la aplicación.
+4. Al registrar, la solicitud se sigue guardando solo en `localStorage` (`cr2-maintenance-local-requests-v2`). El campo `category` conserva el nombre devuelto por la API para mantener la compatibilidad con los casos locales existentes. Todavía no existe `POST /api/requests`.
 
 Los casos ficticios de la versión anterior usan IDs incompatibles con PostgreSQL. No se cargan en este flujo ni se borran de su almacenamiento anterior. Las nuevas solicitudes locales usan una clave distinta y no se guardan en PostgreSQL. No introducir datos reales hasta integrar y validar las rutas de solicitudes.
 

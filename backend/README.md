@@ -1,6 +1,6 @@
 # API de mantenimiento
 
-Servidor Express con TypeScript. Incluye configuración, errores JSON, salud, conexión a PostgreSQL, autenticación con cuentas precreadas y validación de roles. React ya integra el acceso y la consulta de técnicos. Las operaciones de solicitudes siguen pendientes.
+Servidor Express con TypeScript. Incluye configuración, errores JSON, salud, conexión a PostgreSQL, autenticación con cuentas precreadas y validación de roles. React ya integra el acceso y la consulta de técnicos. El catálogo de categorías ya se expone desde la API; su consumo desde el formulario de React está pendiente. Las operaciones de solicitudes siguen pendientes.
 
 ## Ejecutar
 
@@ -54,6 +54,9 @@ Antes de probar el acceso, aplicar **una sola vez** `database/004_sesiones.sql` 
 | `GET /api/auth/me` | Devuelve el usuario de la sesión; sin sesión válida responde 401. |
 | `POST /api/auth/logout` | Enviar JSON `{}`. Revoca la sesión y borra la cookie; responde 204. |
 | `GET /api/technicians` | Solo administración. Lista técnicos activos; sin sesión responde 401 y con otro rol 403. |
+| `GET /api/categories` | Cualquier rol autenticado. Lista categorías activas; sin sesión responde 401 y sin repositorio configurado 503. |
+
+`GET /api/categories` responde con `{ "categories": [{ "id": "3", "name": "Climatización", "description": "..." }] }`. Los identificadores son texto para que React pueda usarlos directamente como valor de un selector. Solo se incluyen filas con `activa = TRUE`, ordenadas por nombre e identificador.
 
 Las respuestas de usuario contienen `id` (texto), `name`, `email`, `role` e `initials`, nunca contraseña ni hash. Los roles de respuesta son `resident`, `admin` y `maintenance`, compatibles con React. Los permisos se comprueban con el rol almacenado en PostgreSQL, no con datos enviados por el cliente.
 
@@ -90,9 +93,9 @@ npm start
 
 Las dependencias del frontend y del backend tienen archivos `package-lock.json` separados. Las pruebas HTTP no necesitan abrir un puerto fijo.
 
-Las pruebas normales usan conexiones simuladas. Las dos pruebas reales se habilitan explícitamente y no cargan `.env`:
+Las pruebas normales usan conexiones simuladas. Las tres pruebas reales se habilitan explícitamente y no cargan `.env`:
 
 - `TEST_DATABASE_URL`: prueba de conectividad con `SELECT 1`, sin modificar tablas.
-- `TEST_AUTH_DATABASE_URL`: base de prueba con los scripts hasta `004_sesiones.sql` y el seed cargados. Verifica login bcrypt de los tres roles, sesión persistida, permisos, rotación, expiración y logout. Crea y elimina solo sus propias sesiones; no modifica cuentas ni ejecuta migraciones.
+- `TEST_AUTH_DATABASE_URL`: base de prueba con los scripts hasta `004_sesiones.sql` y el seed cargados. Verifica login bcrypt de los tres roles, sesión persistida, permisos, rotación, expiración y logout. También comprueba, solo en lectura, que `GET /api/categories` devuelve el catálogo activo. Crea y elimina solo sus propias sesiones; no modifica cuentas ni categorías y no ejecuta migraciones.
 
-Definir las variables en la terminal antes de `npm test`, nunca en archivos versionados. Sin esas variables se omiten dos pruebas. Se verificaron las 29 pruebas con PostgreSQL 18 en una instancia aislada; estas pruebas no sustituyen las de solicitudes y la futura integración del frontend.
+Definir las variables en la terminal antes de `npm test`, nunca en archivos versionados. Sin esas variables se omiten tres pruebas. Se verificaron 35 pruebas: 32 pasan con conexiones simuladas y 3 requieren PostgreSQL 18 en una instancia aislada; la prueba de categorías no modifica datos. Estas pruebas no sustituyen las de solicitudes y la futura integración del frontend.
