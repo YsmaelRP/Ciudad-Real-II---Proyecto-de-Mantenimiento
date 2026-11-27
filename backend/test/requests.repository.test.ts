@@ -97,3 +97,64 @@ test('una solicitud sirve fechas ISO y convierte identificadores a texto', async
   assert.equal(record?.assignedTo, '4');
   assert.equal(record?.createdAt, '2026-01-01T12:00:00.000Z');
 });
+
+const readers: SessionUser[] = [
+  { id: 1, name: 'Residente', email: 'residente@cr2.do', role: 'residente' },
+  technician,
+  { id: 3, name: 'Admin', email: 'admin@cr2.do', role: 'administrador' },
+];
+
+// Comprobar el SQL generado, no solo las filas que devuelve el pool simulado.
+function capturingPool() {
+  const queries: Array<{ sql: string; values: unknown[] }> = [];
+  const pool = {
+    async query(sql: string, values: unknown[] = []) {
+      queries.push({ sql, values });
+      return { rows: [], rowCount: 0 };
+    },
+  } as unknown as Pool;
+  return { pool, queries };
+}
+
+for (const user of readers) {
+  for (const filtered of [false, true]) {
+    test(`listado de ${user.role}${filtered ? ' con filtros' : ''} usa parámetros SQL válidos`, async () => {
+      const { pool, queries } = capturingPool();
+      await createRequestRepository(pool).listRequests(user, filtered ? { status: 'Pendiente', search: 'Torre' } : {});
+      assert.equal(queries.length, 1);
+      const { sql, values } = queries[0];
+      const conditions: string[] = [];
+      const expectedValues: unknown[] = [];
+      if (user.role !== 'administrador') {
+        expectedValues.push(user.id);
+        conditions.push(`${user.role === 'residente' ? 's.id_residente' : 'a.id_trabajador'} = $1`);
+      }
+      if (filtered) {
+        expectedValues.push('Pendiente');
+        conditions.push(`s.estado = $${expectedValues.length}`);
+        expectedValues.push('%Torre%');
+        assert.ok(sql.includes(`s.codigo ILIKE $${expectedValues.length}`));
+      }
+      assert.ok(!sql.includes('$$'));
+      assert.ok(!sql.includes('%n%'));
+      if (conditions.length) assert.ok(sql.includes(`WHERE ${conditions.join(' AND ')}`));
+      assert.deepEqual(values, expectedValues);
+    });
+  }
+
+  test(`detalle de ${user.role} usa parámetros SQL válidos y conserva el permiso`, async () => {
+    const { pool, queries } = capturingPool();
+    await createRequestRepository(pool).findRequest(user, 7);
+    assert.equal(queries.length, 1);
+    const { sql, values } = queries[0];
+    assert.ok(sql.includes('WHERE s.id_solicitud = $1'));
+    assert.ok(!sql.includes('$$'));
+    assert.ok(!sql.includes('%n%'));
+    if (user.role === 'administrador') {
+      assert.deepEqual(values, [7]);
+    } else {
+      assert.ok(sql.includes(`AND ${user.role === 'residente' ? 's.id_residente' : 'a.id_trabajador'} = $2`));
+      assert.deepEqual(values, [7, user.id]);
+    }
+  });
+}

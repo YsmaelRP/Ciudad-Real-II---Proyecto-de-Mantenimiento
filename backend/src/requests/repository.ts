@@ -139,8 +139,8 @@ async function withTransaction<T>(pool: Pool, work: (client: PoolClient) => Prom
 }
 
 function permissionCondition(user: SessionUser): { sql: string; value?: number } {
-  if (user.role === 'residente') return { sql: 's.id_residente = $%n%', value: user.id };
-  if (user.role === 'mantenimiento') return { sql: 'a.id_trabajador = $%n%', value: user.id };
+  if (user.role === 'residente') return { sql: 's.id_residente = %n%', value: user.id };
+  if (user.role === 'mantenimiento') return { sql: 'a.id_trabajador = %n%', value: user.id };
   return { sql: '' };
 }
 
@@ -183,7 +183,7 @@ export function createRequestRepository(pool: Pool): RequestRepository {
 
       const permission = permissionCondition(user);
       if (permission.sql) add(permission.sql, permission.value);
-      if (filters.status) add('s.estado = $%n%', filters.status);
+      if (filters.status) add('s.estado = %n%', filters.status);
       if (filters.search) {
         values.push(`%${filters.search.replace(/[\\%_]/g, '\\$&')}%`);
         const placeholder = `$${values.length}`;

@@ -67,6 +67,10 @@ test('flujo completo de solicitudes contra PostgreSQL real', { skip: !url }, asy
 
     const own = await resident.get('/api/requests').expect(200);
     assert.ok(own.body.requests.some((item: RequestRecord) => item.id === record.id));
+    const ownFiltered = await resident.get('/api/requests').query({ status: 'Pendiente', search: record.code }).expect(200);
+    assert.deepEqual(ownFiltered.body.requests.map((item: RequestRecord) => item.id), [record.id]);
+    const hidden = await otherResident.get('/api/requests').query({ status: 'Pendiente', search: record.code }).expect(200);
+    assert.deepEqual(hidden.body.requests, []);
     await otherResident.get(`/api/requests/${record.id}`).expect(404);
     await technician.get(`/api/requests/${record.id}`).expect(404);
 
@@ -77,6 +81,10 @@ test('flujo completo de solicitudes contra PostgreSQL real', { skip: !url }, asy
     assert.deepEqual(assigned.body.request.history.map((entry: { type: string }) => entry.type), ['created', 'assignment']);
 
     await technician.get(`/api/requests/${record.id}`).expect(200);
+    const assignedList = await technician.get('/api/requests').expect(200);
+    assert.ok(assignedList.body.requests.some((item: RequestRecord) => item.id === record.id));
+    const assignedFiltered = await technician.get('/api/requests').query({ status: 'Pendiente', search: record.code }).expect(200);
+    assert.deepEqual(assignedFiltered.body.requests.map((item: RequestRecord) => item.id), [record.id]);
     const started = await technician.patch(`/api/requests/${record.id}/status`).set('Origin', origin)
       .send({ status: 'En proceso' }).expect(200);
     assert.equal(started.body.request.status, 'En proceso');
