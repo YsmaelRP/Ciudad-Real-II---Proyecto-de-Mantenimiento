@@ -3,13 +3,15 @@ import userEvent from '@testing-library/user-event';
 import { beforeEach, expect, it, vi } from 'vitest';
 import App from './App';
 import * as auth from './api/auth';
+import * as categories from './api/categories';
 import { ApiError } from './api/client';
 import * as requests from './api/requests';
 import type { MaintenanceRequest } from './api/requests';
 
 vi.mock('./api/auth', () => ({ getSession: vi.fn(), login: vi.fn(), logout: vi.fn(), getTechnicians: vi.fn() }));
+vi.mock('./api/categories', () => ({ getCategories: vi.fn() }));
 vi.mock('./api/requests', () => ({
-  getCategories: vi.fn(), listRequests: vi.fn(), getRequest: vi.fn(),
+  listRequests: vi.fn(), getRequest: vi.fn(),
   createRequest: vi.fn(), assignRequest: vi.fn(), changeStatus: vi.fn(),
 }));
 
@@ -36,7 +38,10 @@ beforeEach(() => {
   vi.mocked(auth.login).mockResolvedValue(resident);
   vi.mocked(auth.logout).mockResolvedValue(undefined);
   vi.mocked(auth.getTechnicians).mockResolvedValue([]);
-  vi.mocked(requests.getCategories).mockResolvedValue([{ id: '1', name: 'Plomería' }, { id: '2', name: 'Electricidad' }]);
+  vi.mocked(categories.getCategories).mockResolvedValue([
+    { id: '1', name: 'Plomería', description: null },
+    { id: '2', name: 'Electricidad', description: 'Líneas y enchufes.' },
+  ]);
   vi.mocked(requests.listRequests).mockResolvedValue([]);
   vi.mocked(requests.getRequest).mockResolvedValue(fixture());
   vi.mocked(requests.createRequest).mockResolvedValue(fixture());

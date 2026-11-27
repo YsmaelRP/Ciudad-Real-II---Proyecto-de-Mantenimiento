@@ -4,6 +4,7 @@ import request from 'supertest';
 import { createApp } from '../src/app.js';
 import { createAuthRepository } from '../src/auth/repository.js';
 import { hashToken } from '../src/auth/session.js';
+import { createCategoryRepository } from '../src/categories/repository.js';
 import { createDatabase } from '../src/database.js';
 import { createRequestRepository } from '../src/requests/repository.js';
 import type { RequestRecord } from '../src/requests/types.js';
@@ -23,6 +24,7 @@ test('flujo completo de solicitudes contra PostgreSQL real', { skip: !url }, asy
       frontendOrigin: origin,
       checkDatabase: database.checkConnection,
       authRepository: createAuthRepository(database.pool),
+      categoryRepository: createCategoryRepository(database.pool),
       requestRepository: createRequestRepository(database.pool),
     });
     const resident = request.agent(app);

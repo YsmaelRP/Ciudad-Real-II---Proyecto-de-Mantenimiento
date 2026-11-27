@@ -74,7 +74,6 @@ function setup() {
   });
 
   const repository: RequestRepository = {
-    async listCategories() { return state.categories; },
     async createRequest(input: NewRequestInput) {
       const resident = users.find((user) => user.id === input.residentId)!;
       const id = state.nextId++;
@@ -143,15 +142,6 @@ async function createAsResident(agent: request.Agent) {
   }).expect(201);
   return response.body.request as RequestRecord;
 }
-
-test('el catálogo de categorías exige sesión y devuelve las categorías activas de la API', async () => {
-  const { app, agent } = setup();
-  await request(app).get('/api/categories').expect(401);
-  await login(agent, 'residente@cr2.do');
-  const response = await agent.get('/api/categories').expect(200);
-  assert.deepEqual(response.body.categories, [{ id: '1', name: 'Plomería' }, { id: '2', name: 'Electricidad' }]);
-  assert.equal(response.headers['cache-control'], 'no-store');
-});
 
 test('registrar solicitud toma el autor de la sesión, ignora el cuerpo y genera historial inicial', async () => {
   const { agent, state } = setup();
@@ -311,9 +301,10 @@ test('un técnico no puede modificar un caso que no tiene asignado', async () =>
 
 test('sin repositorio de solicitudes las rutas responden 503 sin afectar health', async () => {
   const app = createApp({ frontendOrigin: origin });
-  const unavailable = await request(app).get('/api/categories').expect(503);
+  const catalog = await request(app).get('/api/categories').expect(503);
+  assert.equal(catalog.body.error.code, 'AUTH_UNAVAILABLE');
+  const unavailable = await request(app).get('/api/requests').expect(503);
   assert.equal(unavailable.body.error.code, 'REQUESTS_UNAVAILABLE');
-  await request(app).get('/api/requests').expect(503);
   const health = await request(app).get('/api/health').expect(200);
   assert.deepEqual(health.body, { status: 'ok' });
 });

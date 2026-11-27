@@ -4,7 +4,6 @@ import {
   assignRequest,
   changeStatus,
   createRequest,
-  getCategories,
   getRequest,
   listRequests,
   type MaintenanceRequest,
@@ -28,13 +27,6 @@ const record: MaintenanceRequest = {
 beforeEach(() => {
   vi.resetAllMocks();
   vi.mocked(apiRequest).mockResolvedValue({ request: record } as never);
-});
-
-it('lee el catálogo de categorías de la respuesta de la API', async () => {
-  vi.mocked(apiRequest).mockResolvedValue({ categories: [{ id: '2', name: 'Electricidad' }] } as never);
-  const signal = new AbortController().signal;
-  expect(await getCategories(signal)).toEqual([{ id: '2', name: 'Electricidad' }]);
-  expect(apiRequest).toHaveBeenCalledWith('/categories', { signal });
 });
 
 it('envía búsqueda y estado como parámetros de consulta', async () => {
