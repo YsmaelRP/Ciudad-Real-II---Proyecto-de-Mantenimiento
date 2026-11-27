@@ -57,7 +57,7 @@ El seed agrega Climatización y Carpintería sin borrar categorías anteriores. 
 - Al resolver, exigir la descripción del trabajo y guardarla en `historial_estados.observacion`. La API puede devolverla como `resolution` en el detalle.
 - Las fechas actuales son `TIMESTAMP` sin zona. Acordar la zona de los datos antes de devolver fechas ISO con offset; no agregar `Z` a una fecha local sin convertirla. Una migración a `TIMESTAMPTZ` debe definir cómo interpretar las fechas existentes.
 
-Los triggers validan roles referenciados y las restricciones protegen la integridad. **No sustituyen los permisos de la API ni garantizan por sí solos las transiciones y el historial conjunto.** React ya utiliza el acceso, las sesiones y la lista de técnicos del backend; las rutas de solicitudes y el reemplazo de su almacenamiento local siguen pendientes.
+Los triggers validan roles referenciados y las restricciones protegen la integridad. **No sustituyen los permisos de la API ni garantizan por sí solos las transiciones y el historial conjunto.** React ya utiliza del backend el acceso, las sesiones, la lista de técnicos, el catálogo y todas las operaciones de solicitudes; `localStorage` ya no es la fuente de los casos. La API no introdujo columnas nuevas: el código generado y los tipos de historial de `003_preparar_api.sql` son suficientes para la beta.
 
 ## Pruebas
 
